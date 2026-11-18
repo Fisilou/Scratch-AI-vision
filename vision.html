@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scratch AI Vision</title>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #171923;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .panel {
+      max-width: 420px;
+      margin: 30px auto;
+      padding: 22px;
+      background: #252a3a;
+      border-radius: 16px;
+    }
+    button, input {
+      margin: 12px 0;
+      padding: 12px;
+      max-width: 100%;
+    }
+    button {
+      background: #4b8cff;
+      border: 0;
+      border-radius: 9px;
+      color: white;
+      font-weight: bold;
+    }
+    #preview {
+      max-width: 100%;
+      max-height: 220px;
+      margin-top: 12px;
+      border-radius: 10px;
+    }
+    #status { color: #b9c8ff; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>Scratch AI Vision</h1>
+    <p>Choisis une image à analyser.</p>
+
+    <input id="image" type="file" accept="image/*">
+    <br>
+    <img id="preview" hidden alt="Aperçu de l'image">
+
+    <div
+      class="cf-turnstile"
+      data-sitekey="0x4AAAAAAGG6r03bK_SOKgbM"
+      data-callback="onTurnstileSuccess">
+    </div>
+
+    <p id="status">En attente d'une image.</p>
+    <button id="send">Analyser l'image</button>
+  </div>
+
+  <script>
+    let selectedImage = null;
+    let turnstileToken = null;
+
+    const imageInput = document.getElementById("image");
+    const preview = document.getElementById("preview");
+    const status = document.getElementById("status");
+    const sendButton = document.getElementById("send");
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        status.textContent = "Choisis un fichier image.";
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        status.textContent = "Image trop volumineuse (maximum 5 Mo).";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        selectedImage = reader.result;
+        preview.src = selectedImage;
+        preview.hidden = false;
+        status.textContent = "Image prête. Valide la vérification.";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    window.onTurnstileSuccess = function(token) {
+      turnstileToken = token;
+      status.textContent = "Vérification réussie !";
+    };
+
+    sendButton.addEventListener("click", () => {
+      if (!selectedImage) {
+        status.textContent = "Choisis d'abord une image.";
+        return;
+      }
+
+      if (!turnstileToken) {
+        status.textContent = "Valide d'abord la vérification.";
+        return;
+      }
+
+      window.parent.postMessage({
+        type: "SCRATCH_AI_VISION_IMAGE",
+        image: selectedImage,
+        turnstileToken: turnstileToken
+      }, "*");
+
+      status.textContent = "Image envoyée à Scratch AI Vision.";
+    });
+  </script>
+</body>
+</html>
