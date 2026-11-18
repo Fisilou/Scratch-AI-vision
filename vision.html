@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scratch AI Vision</title>
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -14,6 +14,7 @@
       padding: 20px;
       text-align: center;
     }
+
     .panel {
       max-width: 420px;
       margin: 30px auto;
@@ -21,57 +22,118 @@
       background: #252a3a;
       border-radius: 16px;
     }
+
     button, input {
       margin: 12px 0;
       padding: 12px;
       max-width: 100%;
     }
+
     button {
       background: #4b8cff;
       border: 0;
       border-radius: 9px;
       color: white;
       font-weight: bold;
+      cursor: pointer;
     }
+
     #preview {
       max-width: 100%;
       max-height: 220px;
       margin-top: 12px;
       border-radius: 10px;
     }
-    #status { color: #b9c8ff; }
+
+    #status {
+      color: #b9c8ff;
+    }
   </style>
 </head>
+
 <body>
   <div class="panel">
     <h1>Scratch AI Vision</h1>
     <p>Choisis une image à analyser.</p>
 
     <input id="image" type="file" accept="image/*">
+
     <br>
+
     <img id="preview" hidden alt="Aperçu de l'image">
 
-    <div
-      class="cf-turnstile"
-      data-sitekey="0x4AAAAAAGG6r03bK_SOKgbM"
-      data-callback="onTurnstileSuccess">
-    </div>
+    <div id="turnstile-container"></div>
 
-    <p id="status">En attente d'une image.</p>
-    <button id="send">Analyser l'image</button>
+    <p id="status">Chargement...</p>
+
+    <button id="send">Envoyer l'image</button>
   </div>
 
   <script>
+    "use strict";
+
+    const SITEKEY = "øx4AAAAAAGG6rØ3bK_S0KgbM";
+
     let selectedImage = null;
     let turnstileToken = null;
+    let turnstileLoaded = false;
 
     const imageInput = document.getElementById("image");
     const preview = document.getElementById("preview");
     const status = document.getElementById("status");
     const sendButton = document.getElementById("send");
 
+    function loadTurnstile() {
+      if (turnstileLoaded) return;
+
+      if (location.hostname === "chatgpt.com" ||
+          location.hostname === "chat.openai.com") {
+        status.textContent =
+          "Ouvre cette page depuis GitHub Pages pour utiliser Turnstile.";
+        return;
+      }
+
+      turnstileLoaded = true;
+
+      const script = document.createElement("script");
+      script.src =
+        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+
+      script.onload = () => {
+        window.turnstile.render(
+          "#turnstile-container",
+          {
+            sitekey: SITEKEY,
+            callback: (token) => {
+              turnstileToken = token;
+              status.textContent = "Vérification réussie !";
+            },
+            "error-callback": () => {
+              status.textContent = "Erreur Turnstile.";
+            },
+            "expired-callback": () => {
+              turnstileToken = null;
+              status.textContent = "Vérification expirée.";
+            }
+          }
+        );
+      };
+
+      script.onerror = () => {
+        status.textContent =
+          "Impossible de charger la vérification Cloudflare.";
+        turnstileLoaded = false;
+      };
+
+      document.head.appendChild(script);
+    }
+
     imageInput.addEventListener("change", () => {
       const file = imageInput.files[0];
+      selectedImage = null;
+
       if (!file) return;
 
       if (!file.type.startsWith("image/")) {
@@ -80,24 +142,26 @@
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        status.textContent = "Image trop volumineuse (maximum 5 Mo).";
+        status.textContent = "Image trop volumineuse (5 Mo maximum).";
         return;
       }
 
       const reader = new FileReader();
+
       reader.onload = () => {
         selectedImage = reader.result;
         preview.src = selectedImage;
         preview.hidden = false;
-        status.textContent = "Image prête. Valide la vérification.";
+        status.textContent = "Image prête.";
+        loadTurnstile();
       };
+
+      reader.onerror = () => {
+        status.textContent = "Impossible de lire l'image.";
+      };
+
       reader.readAsDataURL(file);
     });
-
-    window.onTurnstileSuccess = function(token) {
-      turnstileToken = token;
-      status.textContent = "Vérification réussie !";
-    };
 
     sendButton.addEventListener("click", () => {
       if (!selectedImage) {
@@ -110,13 +174,22 @@
         return;
       }
 
-      window.parent.postMessage({
-        type: "SCRATCH_AI_VISION_IMAGE",
-        image: selectedImage,
-        turnstileToken: turnstileToken
-      }, "*");
+      if (!window.opener || window.opener.closed) {
+        status.textContent =
+          "La fenêtre TurboWarp n'est plus disponible.";
+        return;
+      }
 
-      status.textContent = "Image envoyée à Scratch AI Vision.";
+      window.opener.postMessage(
+        {
+          type: "SCRATCH_AI_VISION_IMAGE",
+          image: selectedImage,
+          turnstileToken: turnstileToken
+        },
+        "https://turbowarp.org"
+      );
+
+      status.textContent = "Image envoyée !";
     });
   </script>
 </body>
