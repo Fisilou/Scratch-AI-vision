@@ -1,25 +1,21 @@
-(function (Scratch) {
-  "use strict";
-
-  class ScratchAIVisionTest {
-    getInfo() {
-      return {
-        id: "scratchaivisiontest",
-        name: "Scratch AI Vision TEST",
-        blocks: [
-          {
-            opcode: "test",
-            blockType: Scratch.BlockType.REPORTER,
-            text: "test Vision"
-          }
-        ]
-      };
-    }
-
-    test() {
-      return "Scratch AI Vision fonctionne !";
-    }
+class HelloWorld {
+  getInfo() {
+    return {
+      id: 'helloworld',
+      name: 'Test TurboWarp',
+      blocks: [
+        {
+          opcode: 'hello',
+          blockType: Scratch.BlockType.REPORTER,
+          text: 'test extension'
+        }
+      ]
+    };
   }
 
-  Scratch.extensions.register(new ScratchAIVisionTest());
-})(Scratch);
+  hello() {
+    return 'Ça fonctionne !';
+  }
+}
+
+Scratch.extensions.register(new HelloWorld());
