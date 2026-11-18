@@ -15,6 +15,8 @@
       this.answer = "";
       this.status = "Prêt";
       this.busy = false;
+      this.popup = null;
+      this.listener = null;
     }
 
     getInfo() {
@@ -24,6 +26,7 @@
         color1: "#7557D9",
         color2: "#6044BD",
         color3: "#4B329B",
+
         blocks: [
           {
             opcode: "analyze",
@@ -45,6 +48,11 @@
             opcode: "getStatus",
             blockType: Scratch.BlockType.REPORTER,
             text: "état de Vision"
+          },
+          {
+            opcode: "isBusy",
+            blockType: Scratch.BlockType.BOOLEAN,
+            text: "Vision travaille ?"
           }
         ]
       };
@@ -58,65 +66,50 @@
       return this.status;
     }
 
+    isBusy() {
+      return this.busy;
+    }
+
     async analyze(args) {
-      if (this.busy) {
-        this.status = "Une analyse est déjà en cours";
-        return;
-      }
+      if (this.busy) return;
 
       this.busy = true;
       this.answer = "";
-      this.status = "Ouverture de la sélection d'image...";
-
-      let popup = null;
+      this.status = "Ouverture de Scratch AI Vision...";
 
       try {
-        popup = window.open(VISION_PAGE, "_blank");
-
-        if (!popup) {
-          throw new Error(
-            "La fenêtre a été bloquée par le navigateur."
-          );
+        if (typeof window === "undefined") {
+          throw new Error("Navigateur indisponible.");
         }
 
-        this.status = "Choisis une image et valide Turnstile";
+        this.popup = window.open(VISION_PAGE, "_blank");
+
+        if (!this.popup) {
+          throw new Error("Fenêtre bloquée par le navigateur.");
+        }
 
         const data = await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
-            window.removeEventListener("message", listener);
-            reject(new Error("Délai dépassé."));
+            window.removeEventListener("message", this.listener);
+            reject(new Error("Temps d'attente dépassé."));
           }, 180000);
 
-          const listener = (event) => {
+          this.listener = (event) => {
             if (event.origin !== PAGE_ORIGIN) return;
-            if (event.source !== popup) return;
 
-            if (
-              !event.data ||
-              event.data.type !== "SCRATCH_AI_VISION_IMAGE"
-            ) return;
+            if (event.data?.type !== "SCRATCH_AI_VISION_IMAGE") {
+              return;
+            }
 
             clearTimeout(timeout);
-            window.removeEventListener("message", listener);
+            window.removeEventListener("message", this.listener);
             resolve(event.data);
           };
 
-          window.addEventListener("message", listener);
+          window.addEventListener("message", this.listener);
         });
 
-        if (
-          typeof data.image !== "string" ||
-          !data.image.startsWith("data:image/")
-        ) {
-          throw new Error("Image invalide.");
-        }
-
-        if (typeof data.turnstileToken !== "string" ||
-            !data.turnstileToken) {
-          throw new Error("Vérification Turnstile manquante.");
-        }
-
-        this.status = "Analyse de l'image en cours...";
+        this.status = "Envoi au moteur Moondream...";
 
         const response = await fetch(WORKER_URL, {
           method: "POST",
@@ -134,19 +127,25 @@
 
         if (!response.ok || !result.success) {
           throw new Error(
-            result.error || "Erreur pendant l'analyse."
+            result.error || "Erreur du serveur."
           );
         }
 
         this.answer = String(result.answer || "");
-        this.status = "Analyse terminée";
+        this.status = "Analyse terminée !";
 
       } catch (error) {
         this.answer = "";
         this.status = "Erreur : " + error.message;
+
       } finally {
         this.busy = false;
-        if (popup && !popup.closed) popup.close();
+
+        if (this.popup && !this.popup.closed) {
+          this.popup.close();
+        }
+
+        this.popup = null;
       }
     }
   }
