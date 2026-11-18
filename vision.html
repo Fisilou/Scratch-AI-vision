@@ -3,194 +3,185 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Scratch AI Vision</title>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #111111;
       font-family: Arial, sans-serif;
-      background: #171923;
-      color: white;
+      color: #ffffff;
       padding: 20px;
-      text-align: center;
     }
 
     .panel {
-      max-width: 420px;
-      margin: 30px auto;
-      padding: 22px;
-      background: #252a3a;
-      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      padding: 35px 25px;
+      text-align: center;
+      background: #ffffff;
+      color: #111111;
+      border-radius: 20px;
+      border: 3px solid #ff8a00;
+      box-shadow: 0 0 25px #ff8a0040;
     }
 
-    button, input {
-      margin: 12px 0;
-      padding: 12px;
-      max-width: 100%;
+    .logo {
+      font-size: 32px;
+      font-weight: 900;
+      margin-bottom: 8px;
+      color: #ff8a00;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 25px;
+      color: #111111;
+    }
+
+    p {
+      color: #555555;
+      font-size: 15px;
+      margin: 15px 0 25px;
     }
 
     button {
-      background: #4b8cff;
-      border: 0;
-      border-radius: 9px;
+      width: 100%;
+      padding: 17px;
+      border: none;
+      border-radius: 12px;
+      background: #ff8a00;
       color: white;
+      font-size: 17px;
       font-weight: bold;
       cursor: pointer;
+      transition: 0.2s;
     }
 
-    #preview {
-      max-width: 100%;
-      max-height: 220px;
-      margin-top: 12px;
-      border-radius: 10px;
+    button:hover {
+      background: #e87900;
+      transform: scale(1.02);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    input {
+      display: none;
     }
 
     #status {
-      color: #b9c8ff;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #555555;
+      overflow-wrap: anywhere;
+    }
+
+    #preview {
+      display: none;
+      width: 100%;
+      max-height: 220px;
+      object-fit: contain;
+      margin-top: 20px;
+      border-radius: 10px;
+      background: #eeeeee;
     }
   </style>
 </head>
 
 <body>
-  <div class="panel">
-    <h1>Scratch AI Vision</h1>
-    <p>Choisis une image à analyser.</p>
 
-    <input id="image" type="file" accept="image/*">
+  <main class="panel">
 
-    <br>
+    <div class="logo">SCRATCH AI</div>
 
-    <img id="preview" hidden alt="Aperçu de l'image">
+    <h1>Vision</h1>
 
-    <div id="turnstile-container"></div>
+    <p>
+      Sélectionne un fichier image pour commencer l'analyse.
+    </p>
 
-    <p id="status">Chargement...</p>
+    <button id="chooseButton">
+      📁 Choisir un fichier
+    </button>
 
-    <button id="send">Envoyer l'image</button>
-  </div>
+    <input
+      type="file"
+      id="fileInput"
+      accept="image/*"
+    >
+
+    <img id="preview" alt="Aperçu de l'image">
+
+    <div id="status">En attente de ton fichier...</div>
+
+  </main>
 
   <script>
-    "use strict";
-
-    const SITEKEY = "øx4AAAAAAGG6rØ3bK_S0KgbM";
-
-    let selectedImage = null;
-    let turnstileToken = null;
-    let turnstileLoaded = false;
-
-    const imageInput = document.getElementById("image");
+    const button = document.getElementById("chooseButton");
+    const input = document.getElementById("fileInput");
     const preview = document.getElementById("preview");
     const status = document.getElementById("status");
-    const sendButton = document.getElementById("send");
 
-    function loadTurnstile() {
-      if (turnstileLoaded) return;
+    button.addEventListener("click", () => {
+      input.click();
+    });
 
-      if (location.hostname === "chatgpt.com" ||
-          location.hostname === "chat.openai.com") {
-        status.textContent =
-          "Ouvre cette page depuis GitHub Pages pour utiliser Turnstile.";
-        return;
-      }
-
-      turnstileLoaded = true;
-
-      const script = document.createElement("script");
-      script.src =
-        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      script.defer = true;
-
-      script.onload = () => {
-        window.turnstile.render(
-          "#turnstile-container",
-          {
-            sitekey: SITEKEY,
-            callback: (token) => {
-              turnstileToken = token;
-              status.textContent = "Vérification réussie !";
-            },
-            "error-callback": () => {
-              status.textContent = "Erreur Turnstile.";
-            },
-            "expired-callback": () => {
-              turnstileToken = null;
-              status.textContent = "Vérification expirée.";
-            }
-          }
-        );
-      };
-
-      script.onerror = () => {
-        status.textContent =
-          "Impossible de charger la vérification Cloudflare.";
-        turnstileLoaded = false;
-      };
-
-      document.head.appendChild(script);
-    }
-
-    imageInput.addEventListener("change", () => {
-      const file = imageInput.files[0];
-      selectedImage = null;
+    input.addEventListener("change", () => {
+      const file = input.files[0];
 
       if (!file) return;
 
       if (!file.type.startsWith("image/")) {
-        status.textContent = "Choisis un fichier image.";
+        status.textContent = "Format de fichier non accepté.";
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
-        status.textContent = "Image trop volumineuse (5 Mo maximum).";
+      if (file.size > 7 * 1024 * 1024) {
+        status.textContent = "Fichier trop volumineux (maximum 7 Mo).";
         return;
       }
+
+      status.textContent = "Lecture du fichier...";
 
       const reader = new FileReader();
 
       reader.onload = () => {
-        selectedImage = reader.result;
-        preview.src = selectedImage;
-        preview.hidden = false;
-        status.textContent = "Image prête.";
-        loadTurnstile();
+        const image = reader.result;
+
+        preview.src = image;
+        preview.style.display = "block";
+
+        if (!window.opener || window.opener.closed) {
+          status.textContent = "Impossible de communiquer avec Scratch.";
+          return;
+        }
+
+        window.opener.postMessage({
+          type: "SCRATCH_AI_VISION_IMAGE",
+          image: image
+        }, "*");
+
+        status.textContent = "Fichier envoyé !";
       };
 
       reader.onerror = () => {
-        status.textContent = "Impossible de lire l'image.";
+        status.textContent = "Erreur pendant la lecture du fichier.";
       };
 
       reader.readAsDataURL(file);
     });
-
-    sendButton.addEventListener("click", () => {
-      if (!selectedImage) {
-        status.textContent = "Choisis d'abord une image.";
-        return;
-      }
-
-      if (!turnstileToken) {
-        status.textContent = "Valide d'abord la vérification.";
-        return;
-      }
-
-      if (!window.opener || window.opener.closed) {
-        status.textContent =
-          "La fenêtre TurboWarp n'est plus disponible.";
-        return;
-      }
-
-      window.opener.postMessage(
-        {
-          type: "SCRATCH_AI_VISION_IMAGE",
-          image: selectedImage,
-          turnstileToken: turnstileToken
-        },
-        "https://turbowarp.org"
-      );
-
-      status.textContent = "Image envoyée !";
-    });
   </script>
+
 </body>
 </html>
